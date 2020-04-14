@@ -1,0 +1,5 @@
+num_of_alerts,num_of_conditions,number_of_listing_events,time_elapsed,memory_usage (GB),cpu_usage
+5000,5,21,0:00:04.550369,,
+20000,5,21,0:00:56.394069,,
+100000,5,21,0:22:13.010236,5.5,"15,00%"
+300000,5,21,4:10:48.087380

@@ -1,5 +1,7 @@
+from builtins import sorted
+
 from bloomFilter.bloomfilter import BloomFilter
-from bloomFilter.add_bloom_filter_rule import add_bloom_filter_rule
+from bloomFilter.add_bloom_filter_rule import add_bloom_filter_rule, save_bloom_filter_rule
 from database import get_db_instance
 
 
@@ -14,21 +16,21 @@ def create_alerts_bloom_filters(n=41, p=0.05):
     """
     db = get_db_instance()
     condition_types = ["boolean", "integer"]
+    alerts = [result for  condition_type in condition_types for result in db.fetch_data(_alert_condition_query_generator(condition_type)) ]
 
-    for condition_type in condition_types:
-        query = _alert_condition_query_generator(condition_type)
-        alerts_and_conditions = db.fetch_data(query)
+    sorted_alerts = sorted(alerts, key=lambda x: x.alert_id )
 
-        prev_alert_id = None
-        bf = None
-        for row_number in range(len(alerts_and_conditions) - 1):
-            row = alerts_and_conditions[row_number]
-            if prev_alert_id != row.alert_id:
-                bf = BloomFilter(n, p)
+    prev_alert_id = None
+    bf = BloomFilter(n, p)
 
-            add_bloom_filter_rule(row, bf)
+    for alert in sorted_alerts:
+        add_bloom_filter_rule(bf, alert.name, alert.value)
 
-            prev_alert_id = row.alert_id
+        if prev_alert_id != alert.alert_id and prev_alert_id is not None:
+            save_bloom_filter_rule(alert.alert_id, bf)
+            bf = BloomFilter(n, p)
+
+        prev_alert_id = alert.alert_id
 
 
 def _alert_condition_query_generator(condition_type: str):
