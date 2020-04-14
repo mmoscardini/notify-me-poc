@@ -1,7 +1,9 @@
 from database import get_db_instance
+from faker import Faker
+from database import generate_conditions
 
 
-def setup():
+def setup(num_of_alerts, conditions):
     """
     This function will create the database snapshot for this POC
     """
@@ -9,8 +11,7 @@ def setup():
 
     _drop_tables(db)
     _create_tables(db)
-    _insert_all_conditions(db)
-    _create_alerts(db)
+    _insert_alerts_and_conditions(db, num_of_alerts, conditions)
 
 
 def _drop_tables(db):
@@ -105,135 +106,158 @@ def _create_tables(db):
     print("CREATE TABLES")
 
 
-def _insert_all_conditions(db):
-    _insert_boolean_conditions(db)
-    _insert_integer_conditions(db)
-    _insert_range_conditions(db)
-    print("INSERT ALL CONDITIONS")
+def _insert_alerts_and_conditions(db, num_of_alerts, conditions):
+    num_of_conditions = len(conditions[0])
+
+    bool_conditions, int_conditions, range_conditions = conditions
+
+    _insert_boolean_conditions(db, bool_conditions)
+    _insert_integer_conditions(db, int_conditions)
+    _insert_range_conditions(db, range_conditions)
+
+    _create_alerts(db, num_of_alerts, num_of_conditions)
+    print("INSERT ALERTS AND CONDITIONS")
 
 
-def _insert_boolean_conditions(db):
-    commands = (
-        """
-        INSERT INTO booleanConditions VALUES (1, 'accept_pet', false);
-        """,
-        """
-        INSERT INTO booleanConditions VALUES (2, 'accept_pet', true);
-        """,
-        """
-        INSERT INTO booleanConditions VALUES (3, 'has_pool', false);
-        """,
-        """
-        INSERT INTO booleanConditions VALUES (4, 'has_pool', true);
-        """,
-    )
+def _insert_boolean_conditions(db, conditions):
+    commands = [
+        f"""
+        INSERT INTO booleanConditions(name, value) VALUES ('{condition}', 'true');
+        INSERT INTO booleanConditions(name, value) VALUES ('{condition}', 'false');
+        """ for condition in conditions
+    ]
+
     db.exec_multiple_commands(commands)
     print("INSERT INTO BOOLEAN CONDITIONS")
 
 
-def _insert_integer_conditions(db):
-    commands = (
-        """
-        INSERT INTO integerConditions VALUES (1, 'bedrooms', 0);
-        """,
-        """
-        INSERT INTO integerConditions VALUES (2, 'bedrooms', 1);
-        """,
-        """
-        INSERT INTO integerConditions VALUES (3, 'bedrooms', 2);
-        """,
-        """
-        INSERT INTO integerConditions VALUES (4, 'bedrooms', 3);
-        """,
-        """
-        INSERT INTO integerConditions VALUES (5, 'bedrooms', 4);
-        """
-    )
+def _insert_integer_conditions(db, conditions):
+    commands = [
+        f"""
+        INSERT INTO integerConditions(name, value) VALUES ('{condition}', '0');
+        INSERT INTO integerConditions(name, value) VALUES ('{condition}', '1');
+        INSERT INTO integerConditions(name, value) VALUES ('{condition}', '2');
+        INSERT INTO integerConditions(name, value) VALUES ('{condition}', '3');
+        """ for condition in conditions
+    ]
 
     db.exec_multiple_commands(commands)
     print("INSERT INTO INTEGER CONDITIONS")
 
 
-def _insert_range_conditions(db):
-    commands = (
-        """
-        INSERT INTO rangeConditions VALUES (1, 'price', 500, 3000);
-        """,
-        """
-        INSERT INTO rangeConditions VALUES (2, 'price', 1000, 3500);
-        """,
-        """
-        INSERT INTO rangeConditions VALUES (3, 'price', 1500, 3000);
-        """,
-        """
-        INSERT INTO rangeConditions VALUES (4, 'price', 2000, 5000);
-        """,
-        """
-        INSERT INTO rangeConditions VALUES (5, 'price', 2500, 6000);
-        """
-    )
+def _insert_range_conditions(db, conditions):
+    fake = Faker()
+
+    commands = [
+        f"""
+        INSERT INTO rangeConditions(name, min_val, max_val) VALUES ('{condition}', '{fake.random.randint(0, 2)}', '{fake.random.randint(2, 5)}');
+        """ for condition in conditions
+    ]
 
     db.exec_multiple_commands(commands)
     print("INSERT INTO RANGE CONDITIONS")
 
 
-def _create_alerts(db):
-    commands = (
+def _create_alerts(db, num_of_alerts, num_of_conditions):
+    fake = Faker()
+
+    alert_commands = [
         """
-        INSERT INTO alerts VALUES (1, True);
-        """,
-        """
-        INSERT INTO alerts VALUES (2, True);
-        """,
-        """
-        INSERT INTO alerts VALUES (3, True);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (1, 1, 1);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (2, 1, 3);
-        """,
-        """
-        INSERT INTO integerConditionAlertEdges VALUES (1, 1, 2);
-        """,
-        """
-        INSERT INTO rangeConditionAlertEdges VALUES (1, 1, 2);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (3, 2, 2);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (4, 2, 3);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (5, 2, 4);
-        """,
-        """
-        INSERT INTO integerConditionAlertEdges VALUES (2, 2, 3);
-        """,
-        """
-        INSERT INTO integerConditionAlertEdges VALUES (3, 2, 4);
-        """,
-        """
-        INSERT INTO rangeConditionAlertEdges VALUES (2, 2, 3);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (6, 3, 1);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (7, 3, 2);
-        """,
-        """
-        INSERT INTO booleanConditionAlertEdges VALUES (8, 3, 3);
-        """,
-        """
-        INSERT INTO integerConditionAlertEdges VALUES (4, 3, 5);
-        """,
-        """
-        INSERT INTO rangeConditionAlertEdges VALUES (3, 3, 5);
-        """,
-    )
+        INSERT INTO alerts(active) VALUES (true);
+        """ for _ in range(num_of_alerts)
+    ]
+
+    boolean_conditions_edge_commands = []
+
+    for alert_id in range(1, num_of_alerts + 1):
+        for cond_id in range(1, (num_of_conditions * 2) + 1, 2):
+            random_selection = fake.random.random()
+            if random_selection < 0.333:
+                boolean_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO booleanConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id}); 
+                    """
+                )
+            elif random_selection > 0.334 and random_selection < 0.666:
+                boolean_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO booleanConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id + 1}); 
+                    """
+                )
+            else:
+                boolean_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO booleanConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id}); 
+                    INSERT INTO booleanConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id + 1}); 
+                    """
+                )
+
+    integer_conditions_edge_commands = []
+    for alert_id in range(1, num_of_alerts + 1):
+        for cond_id in range(1, (num_of_conditions * 4) + 1, 4):
+            random_selection_1 = bool(fake.random.getrandbits(1))
+            random_selection_2 = bool(fake.random.getrandbits(1))
+            random_selection_3 = bool(fake.random.getrandbits(1))
+            random_selection_4 = bool(fake.random.getrandbits(1))
+
+            if random_selection_1:
+                integer_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO integerConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id}); 
+                    """
+                )
+            if random_selection_2:
+                integer_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO integerConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id + 1}); 
+                    """
+                )
+            if random_selection_3:
+                integer_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO integerConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id + 2}); 
+                    """
+                )
+            if random_selection_4:
+                integer_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO integerConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id + 3}); 
+                    """
+                )
+
+            if not (random_selection_1 or random_selection_2 or random_selection_3 or random_selection_4):
+                integer_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO integerConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id}); 
+                    """
+                )
+
+    range_conditions_edge_commands = []
+    for alert_id in range(1, num_of_alerts + 1):
+        for cond_id in range(1, num_of_conditions):
+            if bool(fake.random.getrandbits(1)):
+                range_conditions_edge_commands.append(
+                    f"""
+                    INSERT INTO rangeConditionAlertEdges(alert_id, condition_id) VALUES 
+                    ({alert_id}, {cond_id}); 
+                    """
+                )
+
+    commands = [
+        *alert_commands,
+        *boolean_conditions_edge_commands,
+        *range_conditions_edge_commands,
+        *integer_conditions_edge_commands
+    ]
 
     db.exec_multiple_commands(commands)
     print("CREATED ALL ALERTS")

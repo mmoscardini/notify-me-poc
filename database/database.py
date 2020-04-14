@@ -5,10 +5,11 @@ db_instance = None
 
 
 def get_db_instance():
+    global db_instance
     if db_instance is not None:
         return db_instance
-    return Database()
-
+    db_instance = Database()
+    return db_instance
 
 class Database(object):
     def __init__(self):

@@ -19,28 +19,16 @@ def create_alerts_bloom_filters(n=41, p=0.05):
         query = _alert_condition_query_generator(condition_type)
         alerts_and_conditions = db.fetch_data(query)
 
-        def inset_rule_for_condition(prev_alert_id, row_number, bf):
-            """
-            Recursive function to add all rules base on fetched conditions
-
-            :param prev_alert_id: id of the previous alert handled
-            :param row_number: the row number to handle this iteration
-            :param bf: bloom filter
-            :return: None
-            """
+        prev_alert_id = None
+        bf = None
+        for row_number in range(len(alerts_and_conditions) - 1):
             row = alerts_and_conditions[row_number]
             if prev_alert_id != row.alert_id:
                 bf = BloomFilter(n, p)
 
             add_bloom_filter_rule(row, bf)
 
-            if row_number >= len(alerts_and_conditions) - 1:
-                print(f"Created all {condition_type} rules")
-                return
-
-            return inset_rule_for_condition(row.alert_id, row_number + 1, bf)
-
-        inset_rule_for_condition(None, 0, None)
+            prev_alert_id = row.alert_id
 
 
 def _alert_condition_query_generator(condition_type: str):
